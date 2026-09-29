@@ -1,0 +1,48 @@
+# Секреты и локальные настройки
+.env
+*.env
+!.env.example
+.vault_pass*
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+shortlink_deploy*
+kubeconfig
+*.kubeconfig
+.kube/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node (на случай инструментов)
+node_modules/
+
+# Ansible
+*.retry
+ansible/.ansible/
+
+# Артефакты
+backups/
+*.tar
+*.tar.gz
+*.sql.gz
+.helm/
+k8s/shortlink/charts/
+
+# IDE / ОС
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Текст задания (Word) в репозиторий не кладём
+*.docx
+~$*
+
+# Личные заметки с доступами к стендам — никогда в репозиторий
+Доступы*.txt
+*access*.txt
