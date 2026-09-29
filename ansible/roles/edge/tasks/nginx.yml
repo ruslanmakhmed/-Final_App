@@ -1,0 +1,33 @@
+# Свой nginx.conf: одинаковый на Debian и RedHat, без сайта по умолчанию
+# (в RedHat он зашит прямо в nginx.conf, в Debian — в sites-enabled).
+- name: Deploy main nginx config
+  ansible.builtin.template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/nginx.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart nginx
+
+- name: Deploy shortlink reverse proxy config
+  ansible.builtin.template:
+    src: nginx-shortlink.conf.j2
+    dest: /etc/nginx/conf.d/shortlink.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart nginx
+
+# SELinux по умолчанию запрещает nginx исходящие соединения к бэкенду (502 и avc: denied в audit.log).
+- name: Allow nginx to connect to the backend (SELinux)
+  ansible.posix.seboolean:
+    name: httpd_can_network_connect
+    state: true
+    persistent: true
+  when: ansible_facts['selinux']['status'] | default('disabled') == 'enabled'
+
+- name: Ensure nginx is enabled and running
+  ansible.builtin.service:
+    name: nginx
+    state: started
+    enabled: true

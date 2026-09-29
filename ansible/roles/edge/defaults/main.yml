@@ -1,0 +1,28 @@
+# Служебный пользователь: под ним Ansible заходит на узел после первого прогона
+# (вход root по SSH роль закрывает), поэтому у него sudo без пароля.
+edge_service_user: shortlink
+edge_service_user_pubkey: ""
+edge_service_user_sudo: true
+# Дополнительные открытые ключи администраторов для служебного пользователя.
+edge_admin_pubkeys: []
+
+# SSH
+edge_ssh_port: 22
+
+# Firewall: всё входящее закрыто, кроме этих TCP-портов.
+edge_allowed_ports:
+  - "{{ edge_ssh_port }}"
+  - 80
+
+# nginx — обратный прокси к бэкенду shortlink
+edge_server_name: shortlink.localhost
+edge_backend_host: 127.0.0.1
+edge_backend_port: 8080
+# /metrics снаружи отдаётся только с заголовком X-Metrics-Token.
+edge_metrics_token: ""
+
+# Скрипты обслуживания и расписание проверки
+edge_scripts_src: "{{ playbook_dir }}/../scripts"
+edge_scripts_dir: /opt/shortlink/scripts
+edge_healthcheck_url: "http://127.0.0.1/readyz"
+edge_healthcheck_minute: "*/5"

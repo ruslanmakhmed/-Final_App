@@ -1,0 +1,36 @@
+- name: Create scripts directory
+  ansible.builtin.file:
+    path: "{{ edge_scripts_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install maintenance scripts
+  ansible.builtin.copy:
+    src: "{{ edge_scripts_src }}/{{ item }}"
+    dest: "{{ edge_scripts_dir }}/{{ item }}"
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - healthcheck.sh
+    - backup.sh
+
+- name: Ensure cron is enabled and running
+  ansible.builtin.service:
+    name: "{{ edge_cron_service }}"
+    state: started
+    enabled: true
+
+# cron, а не systemd-таймер: модуль cron идемпотентен из коробки, одна задача вместо
+# двух юнитов, а вывод всё равно уходит в журнал через logger. Причина — в docs/DECISIONS.md.
+- name: Schedule healthcheck
+  ansible.builtin.cron:
+    name: shortlink healthcheck
+    user: "{{ edge_service_user }}"
+    minute: "{{ edge_healthcheck_minute }}"
+    job: >-
+      {{ edge_scripts_dir }}/healthcheck.sh --quiet --containers no --url {{ edge_healthcheck_url }}
+      2>&1 | logger -t shortlink-healthcheck
+  ignore_errors: "{{ ansible_check_mode }}"

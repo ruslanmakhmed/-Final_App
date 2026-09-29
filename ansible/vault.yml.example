@@ -1,0 +1,5 @@
+# Шаблон секретов. Настоящий файл создаётся и сразу шифруется:
+#   cp vault.yml.example group_vars/all/vault.yml
+#   ansible-vault encrypt group_vars/all/vault.yml
+# В git попадает только зашифрованный group_vars/all/vault.yml.
+vault_edge_metrics_token: "replace-with-long-random-string"

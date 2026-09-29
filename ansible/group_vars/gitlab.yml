@@ -1,0 +1,2 @@
+gitlab_port: 8929
+gitlab_root_password: "{{ vault_gitlab_root_password }}"

@@ -1,0 +1,17 @@
+# Оба обработчика слушают одно событие: сначала проверка конфигурации, потом перезапуск.
+# Если nginx -t упадёт, перезапуска с битой конфигурацией не будет.
+- name: Validate nginx configuration
+  ansible.builtin.command: nginx -t
+  changed_when: false
+  listen: Restart nginx
+
+- name: Restart nginx service
+  ansible.builtin.service:
+    name: nginx
+    state: restarted
+  listen: Restart nginx
+
+- name: Restart ssh
+  ansible.builtin.service:
+    name: "{{ edge_ssh_service }}"
+    state: restarted

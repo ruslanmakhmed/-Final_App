@@ -1,0 +1,10 @@
+# dev: фронт на том же узле, что и Compose-стек; бэкенд — опубликованный порт приложения.
+edge_server_name: dev.shortlink.192.168.1.25.nip.io
+edge_backend_host: 127.0.0.1
+edge_backend_port: 8080
+edge_healthcheck_minute: "*/5"
+# 5000 — свой реестр образов: из него тянут образы узлы k3s.
+edge_allowed_ports:
+  - 22
+  - 80
+  - 5000

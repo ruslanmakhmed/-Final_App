@@ -1,0 +1,8 @@
+edge_packages:
+  - nginx
+  - ufw
+  - cron
+  - curl
+edge_ssh_service: ssh
+edge_cron_service: cron
+edge_nginx_user: www-data

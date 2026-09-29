@@ -1,0 +1,46 @@
+# Сначала разрешающие правила (включая SSH), потом политика и включение —
+# иначе можно отрезать себе доступ посреди прогона.
+
+# --- Debian / Ubuntu: ufw
+- name: Allow required TCP ports (ufw)
+  community.general.ufw:
+    rule: allow
+    port: "{{ item | string }}"
+    proto: tcp
+  loop: "{{ edge_allowed_ports }}"
+  when: ansible_facts['os_family'] == 'Debian'
+
+- name: Deny all other incoming traffic and enable ufw
+  community.general.ufw:
+    state: enabled
+    direction: incoming
+    policy: deny
+  when: ansible_facts['os_family'] == 'Debian'
+
+# --- RedHat / AlmaLinux: firewalld (зона public по умолчанию отклоняет всё, что не разрешено)
+- name: Ensure firewalld is running
+  ansible.builtin.service:
+    name: firewalld
+    state: started
+    enabled: true
+  when: ansible_facts['os_family'] == 'RedHat'
+
+- name: Allow required TCP ports (firewalld)
+  ansible.posix.firewalld:
+    port: "{{ item }}/tcp"
+    permanent: true
+    immediate: true
+    state: enabled
+  loop: "{{ edge_allowed_ports }}"
+  when: ansible_facts['os_family'] == 'RedHat'
+
+- name: Close services open by default (firewalld)
+  ansible.posix.firewalld:
+    service: "{{ item }}"
+    permanent: true
+    immediate: true
+    state: disabled
+  loop:
+    - cockpit
+    - dhcpv6-client
+  when: ansible_facts['os_family'] == 'RedHat'

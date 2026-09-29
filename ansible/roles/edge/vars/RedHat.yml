@@ -1,0 +1,11 @@
+# curl в AlmaLinux уже есть (curl-minimal); пакет curl с ним конфликтует.
+edge_packages:
+  - nginx
+  - firewalld
+  - cronie
+  - python3-libselinux
+  - python3-libsemanage
+  - python3-firewall
+edge_ssh_service: sshd
+edge_cron_service: crond
+edge_nginx_user: nginx

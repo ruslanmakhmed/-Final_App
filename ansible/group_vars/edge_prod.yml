@@ -1,0 +1,6 @@
+# prod: бэкенд — Ingress (traefik) кластера k3s. nginx подставляет Host,
+# по которому traefik выбирает маршрут к сервису shortlink.
+edge_server_name: shortlink.192.168.1.22.nip.io
+edge_backend_host: 192.168.1.22
+edge_backend_port: 80
+edge_healthcheck_minute: "*/2"

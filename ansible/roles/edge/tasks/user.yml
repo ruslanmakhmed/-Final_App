@@ -1,0 +1,25 @@
+- name: Create service user
+  ansible.builtin.user:
+    name: "{{ edge_service_user }}"
+    shell: /bin/bash
+    create_home: true
+    state: present
+
+- name: Install service user public keys
+  ansible.posix.authorized_key:
+    user: "{{ edge_service_user }}"
+    key: "{{ item }}"
+    state: present
+  loop: "{{ [edge_service_user_pubkey] + edge_admin_pubkeys }}"
+  # В режиме --check пользователь ещё не создан на чистом узле — задача не должна валить прогон.
+  ignore_errors: "{{ ansible_check_mode }}"
+
+- name: Allow service user to use sudo without password
+  ansible.builtin.template:
+    src: sudoers.j2
+    dest: "/etc/sudoers.d/{{ edge_service_user }}"
+    owner: root
+    group: root
+    mode: "0440"
+    validate: visudo -cf %s
+  when: edge_service_user_sudo

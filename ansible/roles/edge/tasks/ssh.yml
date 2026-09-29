@@ -1,0 +1,19 @@
+- name: Make sure sshd reads drop-in configs
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    line: Include /etc/ssh/sshd_config.d/*.conf
+    insertbefore: BOF
+    validate: sshd -t -f %s
+  notify: Restart ssh
+
+# sshd берёт первое встреченное значение параметра, поэтому файл называется 00-*,
+# чтобы опередить 50-cloud-init.conf и подобные.
+- name: Disable password and root login over SSH
+  ansible.builtin.template:
+    src: sshd-hardening.conf.j2
+    dest: /etc/ssh/sshd_config.d/00-shortlink-hardening.conf
+    owner: root
+    group: root
+    mode: "0644"
+    validate: sshd -t -f %s
+  notify: Restart ssh

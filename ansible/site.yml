@@ -1,0 +1,5 @@
+- name: Prepare edge nodes for shortlink traffic
+  hosts: edge
+  become: true
+  roles:
+    - role: edge

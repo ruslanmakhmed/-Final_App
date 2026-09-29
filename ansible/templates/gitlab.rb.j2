@@ -1,0 +1,20 @@
+# {{ ansible_managed }}
+external_url '{{ gitlab_external_url }}'
+
+# Пароль root задаётся только при первой установке (дальше меняется в интерфейсе).
+gitlab_rails['initial_root_password'] = '{{ gitlab_root_password }}'
+
+# Экономия памяти: ВМ с ~3.6 ГБ RAM.
+puma['worker_processes'] = 0
+sidekiq['concurrency'] = 5
+prometheus_monitoring['enable'] = false
+gitlab_kas['enable'] = false
+registry['enable'] = false
+gitlab_pages['enable'] = false
+gitlab_rails['env'] = {
+  'MALLOC_CONF' => 'dirty_decay_ms:1000,muzzy_decay_ms:1000'
+}
+gitaly['env'] = {
+  'MALLOC_CONF' => 'dirty_decay_ms:1000,muzzy_decay_ms:1000',
+  'GITALY_COMMAND_SPAWN_MAX_PARALLEL' => '2'
+}

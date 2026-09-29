@@ -1,0 +1,31 @@
+# {{ ansible_managed }}
+upstream shortlink_backend {
+    server {{ edge_backend_host }}:{{ edge_backend_port }};
+}
+
+server {
+    listen 80 default_server;
+    server_name {{ edge_server_name }};
+
+    access_log /var/log/nginx/shortlink.access.log;
+    error_log  /var/log/nginx/shortlink.error.log;
+
+    proxy_set_header Host              {{ edge_server_name }};
+    proxy_set_header X-Real-IP         $remote_addr;
+    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_connect_timeout 3s;
+    proxy_read_timeout    10s;
+
+    # Метрики наружу — только с токеном из Ansible Vault.
+    location = /metrics {
+        if ($http_x_metrics_token != "{{ edge_metrics_token }}") {
+            return 403;
+        }
+        proxy_pass http://shortlink_backend;
+    }
+
+    location / {
+        proxy_pass http://shortlink_backend;
+    }
+}

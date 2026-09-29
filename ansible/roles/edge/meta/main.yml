@@ -1,0 +1,19 @@
+galaxy_info:
+  role_name: edge
+  namespace: shortlink
+  author: shortlink team
+  description: Prepares a clean node to accept shortlink traffic (user, SSH, firewall, nginx, healthcheck)
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+    - name: Debian
+      versions:
+        - bookworm
+    - name: EL
+      versions:
+        - "9"
+dependencies: []

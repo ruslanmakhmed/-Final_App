@@ -1,0 +1,20 @@
+- name: Load OS family variables
+  ansible.builtin.include_vars: "{{ ansible_facts['os_family'] }}.yml"
+
+- name: Install packages
+  ansible.builtin.import_tasks: packages.yml
+
+- name: Create service user
+  ansible.builtin.import_tasks: user.yml
+
+- name: Harden SSH
+  ansible.builtin.import_tasks: ssh.yml
+
+- name: Configure firewall
+  ansible.builtin.import_tasks: firewall.yml
+
+- name: Configure nginx reverse proxy
+  ansible.builtin.import_tasks: nginx.yml
+
+- name: Install maintenance scripts and schedule
+  ansible.builtin.import_tasks: scripts.yml

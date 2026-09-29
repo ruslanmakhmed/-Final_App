@@ -1,0 +1,111 @@
+# GitLab Runner (shell executor) на узле Docker (192.168.1.25).
+#   ansible-playbook gitlab-runner.yml -e gitlab_runner_token=glrt-...
+# Токен берётся в GitLab: Admin → CI/CD → Runners → New instance runner (теги: shortlink).
+# Shell executor: задачи выполняются прямо на узле, где есть Docker, свой реестр и доступ к k3s, —
+# ровно те же команды ci/run-stage.sh, что и при ручном прогоне.
+- name: Install GitLab Runner and CI tools
+  hosts: ci_runner
+  become: true
+  vars:
+    ci_helm_version: v3.16.2
+    ci_kubectl_version: v1.36.4
+    ci_venv: /opt/ci-venv
+    ci_python_tools:
+      - ansible-core==2.17.5
+      - ansible-lint==24.9.2
+      - yamllint==1.35.1
+  tasks:
+    - name: Add GitLab Runner package repository
+      ansible.builtin.yum_repository:
+        name: runner_gitlab-runner
+        description: GitLab Runner
+        baseurl: https://packages.gitlab.com/runner/gitlab-runner/el/9/$basearch
+        gpgcheck: true
+        repo_gpgcheck: true
+        # Список ключей — из официального конфига packages.gitlab.com для EL9.
+        gpgkey:
+          - https://packages.gitlab.com/gpgkey/gpg.key
+          - https://packages.gitlab.com/gpgkey/runner/49F16C5CC3A0F81F.pub.gpg
+          - https://packages.gitlab.com/gpgkey/runner/4C80FB51394521E9.pub.gpg
+        sslverify: true
+
+    - name: Install runner and system tools
+      ansible.builtin.dnf:
+        name:
+          - gitlab-runner
+          - git
+          - ShellCheck
+          - python3.11
+        state: present
+
+    # Пользователь задач должен собирать образы. Группа docker = фактически root на узле:
+    # допустимо для выделенного CI-узла, в production — rootless или отдельная ВМ.
+    - name: Allow runner user to use Docker
+      ansible.builtin.user:
+        name: gitlab-runner
+        groups: docker
+        append: true
+
+    - name: Create Python venv with lint tools
+      ansible.builtin.pip:
+        name: "{{ ci_python_tools }}"
+        virtualenv: "{{ ci_venv }}"
+        virtualenv_command: python3.11 -m venv
+
+    - name: Link lint tools into PATH
+      ansible.builtin.file:
+        src: "{{ ci_venv }}/bin/{{ item }}"
+        dest: "/usr/local/bin/{{ item }}"
+        state: link
+      loop:
+        - ansible
+        - ansible-galaxy
+        - ansible-lint
+        - ansible-playbook
+        - ansible-vault
+        - yamllint
+
+    - name: Install kubectl
+      ansible.builtin.get_url:
+        url: "https://dl.k8s.io/release/{{ ci_kubectl_version }}/bin/linux/amd64/kubectl"
+        dest: /usr/local/bin/kubectl
+        mode: "0755"
+
+    - name: Check installed helm version
+      ansible.builtin.command: /usr/local/bin/helm version --short
+      register: ci_helm_installed
+      changed_when: false
+      failed_when: false
+
+    - name: Install helm
+      ansible.builtin.unarchive:
+        src: "https://get.helm.sh/helm-{{ ci_helm_version }}-linux-amd64.tar.gz"
+        dest: /usr/local/bin
+        remote_src: true
+        extra_opts:
+          - --strip-components=1
+          - linux-amd64/helm
+      when: ci_helm_version not in ci_helm_installed.stdout | default('')
+
+    - name: Check whether runner is registered
+      ansible.builtin.command: grep -q 'name = "shortlink-shell"' /etc/gitlab-runner/config.toml
+      register: ci_runner_registered
+      changed_when: false
+      failed_when: false
+
+    - name: Register runner
+      ansible.builtin.command: >-
+        gitlab-runner register --non-interactive
+        --url {{ gitlab_external_url }}
+        --token {{ gitlab_runner_token }}
+        --executor shell
+        --name shortlink-shell
+      when: ci_runner_registered.rc != 0
+      changed_when: true
+      no_log: true
+
+    - name: Ensure runner service is running
+      ansible.builtin.service:
+        name: gitlab-runner
+        state: started
+        enabled: true

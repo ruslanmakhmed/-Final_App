@@ -1,0 +1,29 @@
+# Настройка узлов k3s на свой реестр образов (HTTP, без TLS — учебная сеть).
+#   ansible-playbook k3s-registry.yml
+- name: Point k3s nodes at the shortlink image registry
+  hosts: k3s
+  tasks:
+    # На агентах k3s этого каталога по умолчанию нет.
+    - name: Ensure k3s config directory exists
+      ansible.builtin.file:
+        path: /etc/rancher/k3s
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Configure containerd registry mirror
+      ansible.builtin.template:
+        src: templates/k3s-registries.yaml.j2
+        dest: /etc/rancher/k3s/registries.yaml
+        owner: root
+        group: root
+        mode: "0600"
+      notify: Restart k3s
+
+  handlers:
+    # k3s читает registries.yaml только при старте.
+    - name: Restart k3s
+      ansible.builtin.service:
+        name: "{{ 'k3s' if 'k3s_server' in group_names else 'k3s-agent' }}"
+        state: restarted

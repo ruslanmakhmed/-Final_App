@@ -1,0 +1,92 @@
+# Свой GitLab CE для конвейера (ВМ 192.168.1.26).
+#   ansible-playbook gitlab.yml
+# У ВМ 3.6 ГБ RAM — меньше минимума GitLab, поэтому swap и урезанная конфигурация.
+- name: Install GitLab CE
+  hosts: gitlab
+  become: true
+  vars:
+    gitlab_swap_mb: 4096
+  tasks:
+    - name: Create swap file
+      ansible.builtin.command: dd if=/dev/zero of=/swapfile bs=1M count={{ gitlab_swap_mb }}
+      args:
+        creates: /swapfile
+      notify: Swap file created
+
+    - name: Enable swap on boot
+      ansible.posix.mount:
+        src: /swapfile
+        path: none
+        fstype: swap
+        opts: sw
+        state: present
+
+    # Swap нужен уже во время установки и первого reconfigure.
+    - name: Activate swap before installing GitLab
+      ansible.builtin.meta: flush_handlers
+
+    - name: Add GitLab CE package repository
+      ansible.builtin.yum_repository:
+        name: gitlab_gitlab-ce
+        description: GitLab CE
+        baseurl: https://packages.gitlab.com/gitlab/gitlab-ce/el/9/$basearch
+        gpgcheck: true
+        repo_gpgcheck: true
+        # Список ключей — из официального конфига packages.gitlab.com для EL9.
+        gpgkey:
+          - https://packages.gitlab.com/gpgkey/gpg.key
+          - https://packages.gitlab.com/gpgkey/gitlab/3D645A26AB9FBD22.pub.gpg
+          - https://packages.gitlab.com/gpgkey/gitlab/CB947AD886C8E8FD.pub.gpg
+        sslverify: true
+
+    - name: Create GitLab config directory
+      ansible.builtin.file:
+        path: /etc/gitlab
+        state: directory
+        owner: root
+        group: root
+        mode: "0775"
+
+    # Конфигурация кладётся до установки пакета: пакет её не перезаписывает,
+    # и первый reconfigure сразу поднимет GitLab с нужными настройками.
+    - name: Deploy gitlab.rb
+      ansible.builtin.template:
+        src: templates/gitlab.rb.j2
+        dest: /etc/gitlab/gitlab.rb
+        owner: root
+        group: root
+        mode: "0600"
+      notify: Reconfigure GitLab
+
+    - name: Install GitLab CE
+      ansible.builtin.dnf:
+        name: gitlab-ce
+        state: present
+      notify: Reconfigure GitLab
+
+    - name: Open GitLab port
+      ansible.posix.firewalld:
+        port: "{{ gitlab_port }}/tcp"
+        permanent: true
+        immediate: true
+        state: enabled
+
+  handlers:
+    - name: Restrict swap file permissions
+      ansible.builtin.file:
+        path: /swapfile
+        owner: root
+        group: root
+        mode: "0600"
+      listen: Swap file created
+      # В --check файл не создаётся — нечему менять права.
+      ignore_errors: "{{ ansible_check_mode }}"
+
+    - name: Format and enable swap
+      ansible.builtin.shell: mkswap /swapfile && swapon /swapfile
+      changed_when: true
+      listen: Swap file created
+
+    - name: Reconfigure GitLab
+      ansible.builtin.command: gitlab-ctl reconfigure
+      changed_when: true

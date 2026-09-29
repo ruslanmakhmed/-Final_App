@@ -1,0 +1,10 @@
+edge_service_user: shortlink
+# Открытый ключ служебного пользователя. Пара создаётся один раз на управляющей машине:
+#   ssh-keygen -t ed25519 -f ~/.ssh/shortlink_deploy -N "" -q
+edge_service_user_pubkey: "{{ lookup('ansible.builtin.file', '~/.ssh/shortlink_deploy.pub') }}"
+
+# Секреты — только из зашифрованного vault.yml.
+edge_metrics_token: "{{ vault_edge_metrics_token }}"
+
+# Адрес своего GitLab — нужен и серверу (gitlab.yml), и раннеру (gitlab-runner.yml).
+gitlab_external_url: "http://192.168.1.26:8929"

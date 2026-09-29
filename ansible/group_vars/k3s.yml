@@ -1,0 +1,4 @@
+# Узлы k3s тянут localhost:5000/... из реестра на узле Docker — одно имя образа
+# и для docker push на 192.168.1.25, и для Deployment в кластере.
+k3s_registry_mirror: "localhost:5000"
+k3s_registry_endpoint: "http://192.168.1.25:5000"

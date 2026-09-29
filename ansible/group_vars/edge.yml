@@ -1,0 +1,4 @@
+# Ключ администратора (рабочий компьютер) — чтобы после закрытия входа root
+# заходить на узлы как shortlink и работать через sudo.
+edge_admin_pubkeys:
+  - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKqZadW6GVMOhktnhAxx46bNRNnINbU6HRpUW/D7pZ1N claude-code"
