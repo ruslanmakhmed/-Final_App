@@ -1,0 +1,55 @@
+name: shortlink
+
+services:
+  app:
+    build:
+      context: ../app
+    image: ${REGISTRY:-localhost:5000}/shortlink:${IMAGE_TAG:?IMAGE_TAG is not set, see .env}
+    environment:
+      # Обращение к базе по имени сервиса compose, а не по IP.
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: ${DB_NAME:?DB_NAME is not set}
+      DB_USER: ${DB_USER:?DB_USER is not set}
+      # Значение приходит из .env (не в git), в этом файле пароля нет.
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is not set}
+      APP_PORT: ${APP_PORT:-8080}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    ports:
+      - "${HOST_PORT:-8080}:${APP_PORT:-8080}"
+    depends_on:
+      db:
+        # Ждём готовности базы (pg_isready), а не просто запуска контейнера.
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:16.4-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME:?DB_NAME is not set}
+      POSTGRES_USER: ${DB_USER:?DB_USER is not set}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is not set}
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  # Свой реестр образов. В профиле, чтобы `down` стека не останавливал реестр;
+  # запускается явно: docker compose up -d registry
+  registry:
+    image: registry:2.8.3
+    profiles: ["registry"]
+    ports:
+      - "5000:5000"
+    volumes:
+      - registry:/var/lib/registry
+    restart: unless-stopped
+
+volumes:
+  dbdata:
+  registry:

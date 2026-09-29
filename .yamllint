@@ -1,0 +1,23 @@
+extends: default
+
+ignore: |
+  k8s/shortlink/templates/
+  ansible/group_vars/all/vault.yml
+  ansible/.ansible/
+
+rules:
+  document-start: disable
+  line-length:
+    max: 160
+  truthy:
+    allowed-values: ["true", "false"]
+    check-keys: false
+  # Требования ansible-lint к yamllint
+  comments:
+    min-spaces-from-content: 1
+  comments-indentation: false
+  braces:
+    max-spaces-inside: 1
+  octal-values:
+    forbid-implicit-octal: true
+    forbid-explicit-octal: true

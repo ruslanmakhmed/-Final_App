@@ -1,0 +1,5 @@
+*
+!requirements.txt
+!gunicorn.conf.py
+!healthcheck.py
+!app.py
