@@ -60,6 +60,7 @@ check_deps() {
 }
 
 image_tag() {
+  [[ -n "${IMAGE_TAG:-}" ]] && { echo "$IMAGE_TAG"; return; }
   git -C "$REPO_ROOT" describe --tags --exact-match 2>/dev/null \
     || git -C "$REPO_ROOT" rev-parse --short HEAD 2>/dev/null \
     || echo "dev"
@@ -96,7 +97,7 @@ compose() { docker compose --project-directory "$COMPOSE_DIR" -f "$COMPOSE_DIR/d
 
 wait_for() {
   local url="$1" deadline=$((SECONDS + TIMEOUT))
-  until curl -fsS -o /dev/null "$url"; do
+  until curl -fs -o /dev/null "$url"; do
     ((SECONDS < deadline)) || return 1
     sleep 2
   done
