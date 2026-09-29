@@ -11,6 +11,8 @@ default:
   tags:
     - shortlink
   before_script:
+    # kubectl, helm и линтеры ставятся в /usr/local/bin (ansible/gitlab-runner.yml).
+    - export PATH="/usr/local/bin:$PATH"
     # Тег образа: тег git для релизов, короткий хеш коммита для остального.
     - export IMAGE_TAG="${CI_COMMIT_TAG:-$CI_COMMIT_SHORT_SHA}"
 
