@@ -1,0 +1,15 @@
+replicaCount: 2
+
+app:
+  logLevel: DEBUG
+
+resources:
+  requests:
+    cpu: 25m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi
+
+db:
+  storage: 1Gi

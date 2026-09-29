@@ -1,0 +1,32 @@
+# Кластер создаётся одной командой:
+#   k3d cluster create --config k8s/k3d-cluster.yaml
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+metadata:
+  name: shortlink
+servers: 1
+agents: 1
+image: rancher/k3s:v1.30.5-k3s1
+ports:
+  # Входящий трафик на Ingress (traefik): http://shortlink.localhost:8081
+  - port: 8081:80
+    nodeFilters:
+      - loadbalancer
+registries:
+  # Свой реестр образов рядом с кластером; с хоста: localhost:5001.
+  # Имя уже с префиксом k3d-, чтобы k3d не добавлял его сам.
+  create:
+    name: k3d-shortlink-registry
+    host: "0.0.0.0"
+    hostPort: "5001"
+  # Узлы тянут localhost:5001/... через реестр внутри сети k3d —
+  # одно имя образа и для docker push, и для Deployment.
+  config: |
+    mirrors:
+      "localhost:5001":
+        endpoint:
+          - http://k3d-shortlink-registry:5000
+options:
+  kubeconfig:
+    updateDefaultKubeconfig: true
+    switchCurrentContext: true

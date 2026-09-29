@@ -1,0 +1,43 @@
+replicaCount: 2
+
+image:
+  repository: localhost:5001/shortlink
+  # Пусто — берётся appVersion из Chart.yaml. latest не используется никогда.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+app:
+  port: 8080
+  logLevel: INFO
+
+# Secret с ключом DB_PASSWORD. Создаётся стадией deploy из переменной окружения,
+# в репозитории пароля нет.
+existingSecret: shortlink-db
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 250m
+    memory: 128Mi
+
+ingress:
+  enabled: true
+  className: traefik
+  host: shortlink.localhost
+
+db:
+  image: postgres:16.4-alpine
+  name: shortlink
+  user: shortlink
+  storage: 1Gi
+  # Пусто — StorageClass по умолчанию (в k3d это local-path).
+  storageClassName: ""
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi

@@ -1,0 +1,6 @@
+shortlink {{ .Values.image.tag | default .Chart.AppVersion }} развёрнут в namespace {{ .Release.Namespace }}.
+
+Проверка:
+  kubectl -n {{ .Release.Namespace }} get pods,svc,ingress
+  curl -s -X POST -H 'Content-Type: application/json' -d '{"url":"https://example.com"}' http://{{ .Values.ingress.host }}/api/links
+  (для k3d добавьте порт балансировщика: http://{{ .Values.ingress.host }}:8081/api/links)

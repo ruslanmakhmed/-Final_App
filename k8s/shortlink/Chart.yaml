@@ -1,0 +1,7 @@
+apiVersion: v2
+name: shortlink
+description: URL shortener with PostgreSQL
+type: application
+version: 1.0.0
+# Тег образа по умолчанию; при деплое всегда передаётся явно (--set image.tag=...).
+appVersion: "v1.0.0"

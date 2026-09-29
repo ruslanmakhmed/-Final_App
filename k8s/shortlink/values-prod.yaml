@@ -1,0 +1,22 @@
+replicaCount: 3
+
+app:
+  logLevel: INFO
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 96Mi
+  limits:
+    cpu: 500m
+    memory: 192Mi
+
+db:
+  storage: 5Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi

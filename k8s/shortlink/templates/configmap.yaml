@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-config
+  labels:
+    {{- include "shortlink.labels" . | nindent 4 }}
+data:
+  # DNS-имя сервиса базы, а не IP: переживает перезапуск пода базы.
+  DB_HOST: {{ include "shortlink.dbName" . | quote }}
+  DB_PORT: "5432"
+  DB_NAME: {{ .Values.db.name | quote }}
+  DB_USER: {{ .Values.db.user | quote }}
+  APP_PORT: {{ .Values.app.port | quote }}
+  LOG_LEVEL: {{ .Values.app.logLevel | quote }}
