@@ -1,6 +1,7 @@
 # GitLab Runner (shell executor) на узле Docker (192.168.1.25).
 #   ansible-playbook gitlab-runner.yml -e gitlab_runner_token=glrt-...
-# Токен берётся в GitLab: Admin → CI/CD → Runners → New instance runner (теги: shortlink).
+# Токен берётся в GitLab: Admin → CI/CD → Runners → New instance runner (теги: shortlink)
+# или консолью на сервере GitLab (см. README, раздел «Свой GitLab и раннер»).
 # Shell executor: задачи выполняются прямо на узле, где есть Docker, свой реестр и доступ к k3s, —
 # ровно те же команды ci/run-stage.sh, что и при ручном прогоне.
 - name: Install GitLab Runner and CI tools
@@ -86,6 +87,29 @@
           - --strip-components=1
           - linux-amd64/helm
       when: ci_helm_version not in ci_helm_installed.stdout | default('')
+
+    # Раннер работает на управляющем узле, где уже лежат kubeconfig и пароль Vault;
+    # задачи получают их из домашней папки gitlab-runner, а не из переменных GitLab.
+    - name: Create runner kube directory
+      ansible.builtin.file:
+        path: /home/gitlab-runner/.kube
+        state: directory
+        owner: gitlab-runner
+        group: gitlab-runner
+        mode: "0700"
+
+    - name: Give runner access to the cluster and the vault
+      ansible.builtin.copy:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        remote_src: true
+        owner: gitlab-runner
+        group: gitlab-runner
+        mode: "0600"
+      loop:
+        - { src: /root/.kube/config, dest: /home/gitlab-runner/.kube/config }
+        - { src: /root/.vault_pass, dest: /home/gitlab-runner/.vault_pass }
+      no_log: true
 
     - name: Check whether runner is registered
       ansible.builtin.command: grep -q 'name = "shortlink-shell"' /etc/gitlab-runner/config.toml

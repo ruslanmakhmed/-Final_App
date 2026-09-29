@@ -24,8 +24,10 @@ variables:
 lint:
   stage: lint
   script:
-    # Пароль Vault — маскированная переменная проекта ANSIBLE_VAULT_PASSWORD, в репозитории его нет.
-    - printf '%s' "$ANSIBLE_VAULT_PASSWORD" > ~/.vault_pass && chmod 600 ~/.vault_pass
+    # Пароль Vault: ~/.vault_pass раннера (кладёт ansible/gitlab-runner.yml) или
+    # маскированная переменная проекта ANSIBLE_VAULT_PASSWORD. В репозитории его нет.
+    - if [ -n "${ANSIBLE_VAULT_PASSWORD:-}" ]; then (umask 077; printf '%s' "$ANSIBLE_VAULT_PASSWORD" > ~/.vault_pass); fi
+    - test -s ~/.vault_pass
     - ansible-galaxy collection install -r ansible/requirements.yml > /dev/null
     - ./ci/run-stage.sh lint
 
@@ -45,7 +47,8 @@ push:
     - ./ci/run-stage.sh push
 
 # Выкатка только по тегу vX.Y.Z: в кластер попадает осознанно выпущенная версия,
-# а не каждый промежуточный коммит. KUBECONFIG — переменная типа File, DB_PASSWORD — masked.
+# а не каждый промежуточный коммит. Доступ к кластеру — ~/.kube/config раннера
+# (или переменная KUBECONFIG типа File); Secret с паролем базы уже есть в кластере.
 deploy:
   stage: deploy
   rules:
