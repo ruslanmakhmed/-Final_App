@@ -1,0 +1,117 @@
+# Каждая задача вызывает ci/run-stage.sh — ровно те же команды, что и при локальном прогоне.
+# В остальных шагах — только подготовка раннера (утилиты, вход в реестр, передача образа).
+name: ci
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*.*.*"]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  # Имя образа в GitHub Container Registry. Не из имени репозитория: путь образа
+  # должен быть в нижнем регистре и не может начинаться с дефиса.
+  IMAGE: ghcr.io/${{ github.repository_owner }}/shortlink
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install linters
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+          pip install -q yamllint==1.35.1 ansible-core==2.17.5 ansible-lint==24.9.2
+          ansible-galaxy collection install -r ansible/requirements.yml
+      - name: Vault password
+        # Секрет репозитория ANSIBLE_VAULT_PASSWORD; в самом репозитории пароля нет.
+        env:
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+        run: printf '%s' "$ANSIBLE_VAULT_PASSWORD" > ~/.vault_pass && chmod 600 ~/.vault_pass
+      - name: Lint
+        run: bash ci/run-stage.sh lint
+
+  build:
+    runs-on: ubuntu-24.04
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - name: Image tag
+        # Тег образа: тег git для релизов, короткий хеш коммита для остального.
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then tag="$GITHUB_REF_NAME"; else tag="${GITHUB_SHA::7}"; fi
+          echo "IMAGE_TAG=$tag" >> "$GITHUB_ENV"
+      - name: Build
+        run: bash ci/run-stage.sh build
+      # Образ между задачами передаётся архивом: у каждой задачи своя чистая машина.
+      - name: Save image
+        run: docker save "$IMAGE:$IMAGE_TAG" -o image.tar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: image
+          path: image.tar
+          retention-days: 1
+
+  push:
+    runs-on: ubuntu-24.04
+    needs: build
+    # Из pull request образ не публикуется: только основная ветка и теги.
+    if: github.event_name == 'push'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: image
+      - name: Image tag
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then tag="$GITHUB_REF_NAME"; else tag="${GITHUB_SHA::7}"; fi
+          echo "IMAGE_TAG=$tag" >> "$GITHUB_ENV"
+      - name: Registry login
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Load image
+        run: docker load -i image.tar
+      - name: Push
+        run: bash ci/run-stage.sh push
+
+  # Выкатка только по тегу vX.Y.Z: в кластер попадает осознанно выпущенная версия,
+  # а не каждый промежуточный коммит.
+  deploy:
+    runs-on: ubuntu-24.04
+    needs: push
+    if: startsWith(github.ref, 'refs/tags/v')
+    environment: prod
+    env:
+      DEPLOY_ENV: prod
+    steps:
+      - uses: actions/checkout@v4
+      # Учебный кластер k3d не виден из интернета, поэтому без секрета KUBECONFIG
+      # задача не падает, а пропускается; на стенде deploy выполняется
+      # той же командой вручную: ./ci/run-stage.sh deploy
+      - name: Cluster access
+        id: cluster
+        env:
+          KUBECONFIG_CONTENT: ${{ secrets.KUBECONFIG }}
+        run: |
+          if [ -z "$KUBECONFIG_CONTENT" ]; then
+            echo "::notice::Секрет KUBECONFIG не задан — deploy пропущен"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          mkdir -p ~/.kube && printf '%s' "$KUBECONFIG_CONTENT" > ~/.kube/config && chmod 600 ~/.kube/config
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+      - name: Deploy
+        if: steps.cluster.outputs.ready == 'true'
+        env:
+          IMAGE_TAG: ${{ github.ref_name }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        run: bash ci/run-stage.sh deploy

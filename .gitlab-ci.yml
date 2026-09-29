@@ -1,0 +1,57 @@
+# Конвейер для своего GitLab (192.168.1.26:8929) и раннера shell на узле Docker (192.168.1.25).
+# Каждая задача вызывает ci/run-stage.sh — ровно те же команды, что и при локальном прогоне.
+# Тот же скрипт вызывает и .github/workflows/ci.yml.
+stages:
+  - lint
+  - build
+  - push
+  - deploy
+
+default:
+  tags:
+    - shortlink
+  before_script:
+    # Тег образа: тег git для релизов, короткий хеш коммита для остального.
+    - export IMAGE_TAG="${CI_COMMIT_TAG:-$CI_COMMIT_SHORT_SHA}"
+
+variables:
+  # Свой реестр на узле раннера; узлы k3s тянут localhost:5000/... через зеркало (ansible/k3s-registry.yml).
+  REGISTRY: localhost:5000
+  DEPLOY_ENV: prod
+  INGRESS_DOMAIN: 192.168.1.22.nip.io
+  GIT_DEPTH: "0"
+
+lint:
+  stage: lint
+  script:
+    # Пароль Vault — маскированная переменная проекта ANSIBLE_VAULT_PASSWORD, в репозитории его нет.
+    - printf '%s' "$ANSIBLE_VAULT_PASSWORD" > ~/.vault_pass && chmod 600 ~/.vault_pass
+    - ansible-galaxy collection install -r ansible/requirements.yml > /dev/null
+    - ./ci/run-stage.sh lint
+
+# Раннер один и работает прямо на узле с Docker: собранный образ остаётся в локальном
+# хранилище Docker и доступен задаче push без передачи артефактом.
+build:
+  stage: build
+  script:
+    - ./ci/run-stage.sh build
+
+push:
+  stage: push
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG
+  script:
+    - ./ci/run-stage.sh push
+
+# Выкатка только по тегу vX.Y.Z: в кластер попадает осознанно выпущенная версия,
+# а не каждый промежуточный коммит. KUBECONFIG — переменная типа File, DB_PASSWORD — masked.
+deploy:
+  stage: deploy
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+  environment:
+    name: prod
+    url: http://shortlink.192.168.1.22.nip.io
+  script:
+    - ./ci/run-stage.sh deploy
