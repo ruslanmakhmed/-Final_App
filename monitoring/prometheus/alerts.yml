@@ -1,0 +1,34 @@
+groups:
+  - name: shortlink
+    rules:
+      # Период ожидания (for) отсекает единичные сбои скрейпа и перезапуски при выкатке.
+      - alert: ShortlinkTargetDown
+        expr: up{job="shortlink"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Под {{ $labels.pod }} не отдаёт метрики"
+          description: "Prometheus не может снять /metrics с {{ $labels.pod }} больше минуты (под упал, в CrashLoopBackOff или порт не совпадает)."
+
+      - alert: ShortlinkDatabaseUnavailable
+        expr: shortlink_db_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Под {{ $labels.pod }} не достаёт до базы"
+          description: "shortlink_db_up = 0 больше минуты: под не готов и выведен из балансировки."
+
+      - alert: ShortlinkHighNotFoundRatio
+        expr: |
+          sum(rate(shortlink_redirects_not_found_total[5m]))
+            /
+          clamp_min(sum(rate(shortlink_redirects_total[5m])) + sum(rate(shortlink_redirects_not_found_total[5m])), 0.001)
+            > 0.5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Больше половины переходов — по несуществующим кодам"
+          description: "Доля 404 за 5 минут: {{ $value | humanizePercentage }}."

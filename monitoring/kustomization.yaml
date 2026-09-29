@@ -1,0 +1,30 @@
+# Применяется одной командой: kubectl apply -k monitoring/
+# ConfigMap собираются из настоящих файлов (prometheus.yml, alerts.yml, дашборд JSON):
+# их можно линтовать и править как обычные файлы. Суффикс-хеш в имени ConfigMap
+# перезапускает поды при изменении конфигурации.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: shortlink
+
+resources:
+  - prometheus/rbac.yaml
+  - prometheus/deployment.yaml
+  - prometheus/service.yaml
+  - grafana/deployment.yaml
+  - grafana/service.yaml
+  - ingress.yaml
+
+configMapGenerator:
+  - name: prometheus-config
+    files:
+      - prometheus/prometheus.yml
+      - prometheus/alerts.yml
+  - name: grafana-provisioning-datasources
+    files:
+      - grafana/provisioning/datasources.yml
+  - name: grafana-provisioning-dashboards
+    files:
+      - grafana/provisioning/dashboards.yml
+  - name: grafana-dashboards
+    files:
+      - grafana/dashboards/shortlink.json
